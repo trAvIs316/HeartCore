@@ -1,0 +1,1986 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>PulseCore 動脈心友會</title>
+  
+  <!-- 桌面圖標與 PWA 宣告 -->
+  <link rel="apple-touch-icon" href="https://img.icons8.com/color/192/heart-with-pulse.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="https://img.icons8.com/color/192/heart-with-pulse.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://img.icons8.com/color/192/heart-with-pulse.png">
+  <link rel="shortcut icon" href="https://img.icons8.com/color/192/heart-with-pulse.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="https://img.icons8.com/color/192/heart-with-pulse.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PulseCore">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    .wheel-outer {
+      position: relative;
+      height: 150px;
+      overflow: hidden;
+      background: #f8fafc;
+      border-radius: 16px;
+      border: 1px solid #e2e8f0;
+    }
+    .wheel-scroll {
+      height: 150px;
+      overflow-y: scroll;
+      scroll-snap-type: y mandatory;
+      padding-top: 55px;
+      padding-bottom: 55px;
+      box-sizing: border-box;
+      -webkit-overflow-scrolling: touch;
+    }
+    .wheel-item {
+      height: 40px;
+      line-height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      scroll-snap-align: center;
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: #94a3b8;
+      user-select: none;
+    }
+    .wheel-box {
+      position: absolute;
+      top: 55px;
+      left: 6px;
+      right: 6px;
+      height: 40px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 2px solid #10b981;
+      pointer-events: none;
+      border-radius: 12px;
+      z-index: 10;
+    }
+
+    .drag-item {
+      touch-action: none;
+      user-select: none;
+    }
+    .drag-over {
+      border: 2px dashed #10b981 !important;
+      opacity: 0.6;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen pb-28 font-sans select-none">
+
+  <!-- Toast 提示 -->
+  <div id="toastNotification" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl shadow-xl font-bold text-xs flex items-center gap-2 transition-all duration-300 opacity-0 pointer-events-none -translate-y-4">
+    <span id="toastIcon">✅</span>
+    <span id="toastMsg">成功</span>
+  </div>
+
+  <header class="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 py-3 border-b border-emerald-100 shadow-sm flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-white shadow-md shadow-emerald-500/20">💓</div>
+      <div>
+        <h1 class="text-base font-black tracking-tight text-slate-900 leading-tight">PulseCore</h1>
+        <span class="text-[10px] font-bold text-emerald-600 block">動脈心友會</span>
+      </div>
+    </div>
+    
+    <div class="flex items-center gap-2">
+      <button onclick="openHistoryCalendarModal()" class="px-2.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold active:scale-95 transition-all flex items-center gap-1">
+        <span>📅</span> 歷史日誌
+      </button>
+      <button onclick="openConfigModal()" class="p-2 rounded-xl bg-slate-100 text-slate-600 hover:text-slate-900 text-xs font-bold active:scale-95 transition-all">⚙️</button>
+    </div>
+  </header>
+
+  <main class="max-w-md mx-auto p-4 space-y-4">
+    <!-- 1. 身體指標記錄 -->
+    <section class="bg-white rounded-3xl p-4 border border-emerald-100/80 shadow-sm space-y-3.5">
+      <div class="flex justify-between items-center">
+        <div class="flex items-center gap-1.5 font-bold text-slate-800 text-sm">
+          <span>🩺</span> <span>身體指標快速記錄</span>
+        </div>
+        <button type="button" onclick="openDateTimePickerModal()" class="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-mono font-bold border border-emerald-200/60 active:scale-95 transition-all">
+          <span>📅</span> <span id="displaySelectedDateTime">今日 現在</span>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-3 gap-2">
+        <div onclick="openBpModal()" class="cursor-pointer bg-slate-50 hover:bg-emerald-50/60 p-2.5 rounded-2xl border border-slate-200/70 text-center transition-all active:scale-95">
+          <span class="text-[10px] font-bold text-slate-400 block uppercase">上下血壓</span>
+          <div class="my-1 font-mono font-black text-slate-800 text-base leading-tight">
+            <span id="cardSys">--</span>/<span id="cardDia">--</span>
+          </div>
+          <span class="text-[9px] text-emerald-600 font-bold block">點選調校</span>
+        </div>
+
+        <div onclick="openHrModal()" class="cursor-pointer bg-slate-50 hover:bg-rose-50/60 p-2.5 rounded-2xl border border-slate-200/70 text-center transition-all active:scale-95">
+          <span class="text-[10px] font-bold text-slate-400 block uppercase">靜止心跳</span>
+          <div class="my-1 font-mono font-black text-rose-500 text-base leading-tight">
+            <span id="cardHr">--</span> <span class="text-[10px] text-slate-400 font-normal">bpm</span>
+          </div>
+          <span class="text-[9px] text-rose-600 font-bold block">點選調校</span>
+        </div>
+
+        <div onclick="openWeightPadModal()" class="cursor-pointer bg-slate-50 hover:bg-teal-50/60 p-2.5 rounded-2xl border border-slate-200/70 text-center transition-all active:scale-95">
+          <span class="text-[10px] font-bold text-slate-400 block uppercase">體重記錄</span>
+          <div class="my-1 font-mono font-black text-teal-600 text-base leading-tight">
+            <span id="cardWeight">--</span> <span id="cardWeightUnit" class="text-[10px] text-slate-400 font-normal">kg</span>
+          </div>
+          <span class="text-[9px] text-teal-600 font-bold block">數字鍵盤</span>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between px-1 text-xs text-slate-500 font-semibold">
+        <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="checkSaveBp" checked class="rounded text-emerald-600"> 存血壓</label>
+        <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="checkSaveHr" checked class="rounded text-emerald-600"> 存心跳</label>
+        <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="checkSaveWt" checked class="rounded text-emerald-600"> 存體重</label>
+      </div>
+
+      <button id="btnSaveVitals" onclick="submitVitalsRecord()" class="w-full bg-emerald-500 hover:bg-emerald-600 active:scale-[0.98] text-white py-3 rounded-2xl font-bold text-xs shadow-md shadow-emerald-500/25 transition-all">
+        💾 儲存身體指標至 Google Sheet
+      </button>
+    </section>
+
+    <!-- 2. 飲食與水分記錄 -->
+    <section class="bg-white rounded-3xl p-4 border border-emerald-100/80 shadow-sm space-y-3">
+      <div class="flex justify-between items-center">
+        <div class="flex items-center gap-2">
+          <select id="dietMealType" onchange="onMealTypeChange()" class="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl px-2.5 py-1.5 focus:outline-none">
+            <option value="早餐">🍳 早餐</option>
+            <option value="午餐" selected>🥗 午餐</option>
+            <option value="晚餐">🍲 晚餐</option>
+            <option value="下午茶/小食">☕ 下午茶 / 小食</option>
+            <option value="水分補充">💧 純水分補充</option>
+          </select>
+          <span class="text-[10px] text-slate-400 font-medium" id="mealTypeSubHint">食物配飲品</span>
+        </div>
+
+        <button type="button" onclick="openPresetManagerModal()" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold active:scale-95 transition-all flex items-center gap-1">
+          <span>⚙️</span> 管理常用項目
+        </button>
+      </div>
+
+      <!-- 快速主食滑軌 (純水分模式自動隱藏) -->
+      <div id="foodPresetsContainer" class="space-y-1">
+        <span class="text-[10px] font-bold text-slate-400 block px-1" id="foodSliderTitle">🍱 常用主食 (點擊直接加入)</span>
+        <div id="foodPresetsSlider" class="flex gap-2 overflow-x-auto no-scrollbar py-1"></div>
+      </div>
+
+      <!-- 快速飲品滑軌 -->
+      <div class="space-y-1">
+        <span class="text-[10px] font-bold text-slate-400 block px-1">🥤 配搭飲品 / 水分 (自動計入容量)</span>
+        <div id="drinkPresetsSlider" class="flex gap-2 overflow-x-auto no-scrollbar py-1"></div>
+      </div>
+
+      <!-- 描述與自動水分 -->
+      <div class="space-y-2 pt-1">
+        <div class="relative">
+          <input type="text" id="dietMealDesc" placeholder="食物或飲品描述 (例：沙嗲牛肉麵 + 凍檸茶走甜)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-emerald-500 pr-12">
+          <button type="button" onclick="clearDietDesc()" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 hover:text-rose-500">清空</button>
+        </div>
+        
+        <div class="flex items-center gap-3 bg-sky-50/70 border border-sky-100 p-2.5 rounded-xl">
+          <span class="text-xs font-bold text-sky-800">💧 水分攝取量:</span>
+          <div class="flex items-center gap-1.5 flex-1">
+            <input type="number" id="dietWaterMl" placeholder="0" class="w-20 bg-white border border-sky-200 rounded-lg px-2 py-1 text-xs text-center font-mono font-bold text-sky-700">
+            <span class="text-xs font-bold text-sky-600">ml</span>
+          </div>
+          <div class="flex gap-1">
+            <button type="button" onclick="addWaterMl(100)" class="px-2 py-0.5 bg-white border border-sky-200 text-sky-700 rounded-md text-[10px] font-bold active:scale-95">+100</button>
+            <button type="button" onclick="addWaterMl(250)" class="px-2 py-0.5 bg-white border border-sky-200 text-sky-700 rounded-md text-[10px] font-bold active:scale-95">+250</button>
+          </div>
+        </div>
+
+        <!-- 拍照相片區塊 -->
+        <div class="p-2.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="text-[10px] font-bold text-slate-500">📷 拍照記錄 (支援自選相片或免拍真相)</span>
+            <label class="text-xs font-bold text-emerald-600 cursor-pointer active:scale-95 bg-white border border-emerald-200 px-2 py-0.5 rounded-lg shadow-sm">
+              + 加入相片
+              <input type="file" accept="image/*" multiple id="inputMultiDietImages" class="hidden" onchange="handleMultiDietImages(event)">
+            </label>
+          </div>
+          <div id="dietImagePreviewList" class="flex gap-2 overflow-x-auto no-scrollbar min-h-[45px] items-center">
+            <span class="text-[11px] text-slate-400 italic">尚未加入相片</span>
+          </div>
+        </div>
+
+        <!-- 是否記住為近 2 週快捷 (飲茶/聚餐取消勾選) -->
+        <div class="flex items-center justify-between px-1 py-0.5">
+          <label class="flex items-center gap-1.5 text-xs font-bold text-slate-600 cursor-pointer select-none">
+            <input type="checkbox" id="checkRememberQuickPreset" checked class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500">
+            <span>記住此餐為近 2 週快捷</span>
+          </label>
+          <span class="text-[10px] text-slate-400">飲茶/聚餐可取消勾選</span>
+        </div>
+
+        <button onclick="submitDietRecord()" id="btnSubmitDiet" class="w-full bg-slate-800 hover:bg-slate-700 active:scale-[0.98] text-white py-3 rounded-2xl font-bold text-xs shadow transition-all">
+          入表記錄此餐 (AI 自動分析熱量)
+        </button>
+      </div>
+    </section>
+
+    <!-- 3. 健康趨勢圖表 -->
+    <section class="bg-white rounded-3xl p-4 border border-emerald-100/80 shadow-sm space-y-3">
+      <div class="flex justify-between items-center">
+        <div>
+          <h3 class="font-bold text-slate-800 text-sm flex items-center gap-1.5">📈 健康趨勢圖表</h3>
+        </div>
+        <div class="flex gap-1">
+          <button onclick="switchChartType('bp')" id="btnTabBp" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500 text-white shadow-sm transition-all">血壓</button>
+          <button onclick="switchChartType('weight')" id="btnTabWeight" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 transition-all">體重</button>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between gap-1 p-1 bg-slate-100 rounded-xl text-xs font-bold text-slate-600">
+        <button onclick="setChartPeriod('7d')" id="btnPeriod7d" class="flex-1 py-1 rounded-lg bg-white text-emerald-700 shadow-sm">近 1 星期</button>
+        <button onclick="setChartPeriod('30d')" id="btnPeriod30d" class="flex-1 py-1 rounded-lg hover:text-slate-800">近 1 個月</button>
+        <button onclick="openCustomPeriodPicker()" id="btnPeriodCustom" class="flex-1 py-1 rounded-lg hover:text-slate-800">自訂區間</button>
+      </div>
+
+      <div class="h-56 relative w-full pt-1">
+        <canvas id="healthTrendChart"></canvas>
+      </div>
+
+      <div id="chartLegendContainer" class="pt-2 border-t border-slate-100 text-[11px] font-bold space-y-1.5 select-none">
+        <div class="flex items-center justify-center gap-6">
+          <div onclick="toggleChartDataset(0)" class="flex items-center gap-1.5 cursor-pointer hover:opacity-80" id="legendItem0">
+            <span class="w-3.5 h-3.5 rounded-sm bg-[#059669] inline-block shadow-sm"></span>
+            <span class="text-slate-700">收縮壓 (上壓)</span>
+          </div>
+          <span class="text-slate-300">|</span>
+          <div onclick="toggleChartDataset(1)" class="flex items-center gap-1.5 cursor-pointer hover:opacity-80" id="legendItem1">
+            <span class="w-3.5 h-3.5 rounded-sm bg-[#0284c7] inline-block shadow-sm"></span>
+            <span class="text-slate-700">舒張壓 (下壓)</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-center gap-6">
+          <div onclick="toggleChartDataset(2)" class="flex items-center gap-1.5 cursor-pointer hover:opacity-80" id="legendItem2">
+            <span class="w-4 h-0.5 border-t-2 border-dashed border-[#ea580c] inline-block"></span>
+            <span class="text-slate-600" id="legendTextSys">理想上壓 (125)</span>
+          </div>
+          <span class="text-slate-300">|</span>
+          <div onclick="toggleChartDataset(3)" class="flex items-center gap-1.5 cursor-pointer hover:opacity-80" id="legendItem3">
+            <span class="w-4 h-0.5 border-t-2 border-dashed border-[#eab308] inline-block"></span>
+            <span class="text-slate-600" id="legendTextDia">理想下壓 (80)</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modals -->
+
+  <!-- 1. 時間與日曆 Modal -->
+  <div id="dateTimePickerModal" onclick="onBackdropClick(event, 'dateTimePickerModal')" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl p-5 w-full max-w-sm shadow-2xl space-y-4" onclick="event.stopPropagation()">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-black text-sm text-slate-800">選擇記錄日期與時間</h3>
+        <button onclick="closeModal('dateTimePickerModal')" class="text-slate-400 font-bold text-lg">&times;</button>
+      </div>
+
+      <div class="space-y-2 bg-slate-50 p-3 rounded-2xl border border-slate-200/70">
+        <div class="flex justify-between items-center text-xs font-bold text-slate-700">
+          <button onclick="changeCalMonth(-1)" class="p-1 px-2 rounded-lg bg-white shadow-sm active:scale-95">◀</button>
+          <span id="calMonthYearTitle" class="font-mono text-sm font-black">--</span>
+          <button onclick="changeCalMonth(1)" class="p-1 px-2 rounded-lg bg-white shadow-sm active:scale-95">▶</button>
+        </div>
+        <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 pt-1">
+          <span class="text-rose-400">日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span class="text-sky-400">六</span>
+        </div>
+        <div id="calDaysGrid" class="grid grid-cols-7 gap-1 text-xs font-mono"></div>
+      </div>
+
+      <div class="space-y-1 text-center">
+        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">時間 (59分後循環回00)</span>
+        <div class="flex justify-center items-center gap-3">
+          <div class="wheel-outer w-24">
+            <div class="wheel-box"></div>
+            <div class="wheel-scroll no-scrollbar text-center" id="wheelHour" onscroll="handleInfiniteScroll('wheelHour', 24)"></div>
+          </div>
+          <span class="font-black text-lg text-slate-400">:</span>
+          <div class="wheel-outer w-24">
+            <div class="wheel-box"></div>
+            <div class="wheel-scroll no-scrollbar text-center" id="wheelMinute" onscroll="handleInfiniteScroll('wheelMinute', 60)"></div>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="confirmDateTimePicker()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-2xl text-xs shadow-md">確認日期與時間</button>
+    </div>
+  </div>
+
+  <!-- 2. 血壓 Modal -->
+  <div id="bpModal" onclick="onBackdropClick(event, 'bpModal')" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl p-5 w-full max-w-sm shadow-2xl space-y-4" onclick="event.stopPropagation()">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-black text-sm text-slate-800">調整上下血壓 (mmHg)</h3>
+        <button onclick="closeModal('bpModal')" class="text-slate-400 font-bold text-lg">&times;</button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 pt-1">
+        <div class="space-y-1 text-center">
+          <span class="text-[11px] font-bold text-slate-500 block">上壓 (收縮壓)</span>
+          <div class="wheel-outer w-full">
+            <div class="wheel-box"></div>
+            <div class="wheel-scroll no-scrollbar" id="wheelSystolic"></div>
+          </div>
+        </div>
+        <div class="space-y-1 text-center">
+          <span class="text-[11px] font-bold text-slate-500 block">下壓 (舒張壓)</span>
+          <div class="wheel-outer w-full">
+            <div class="wheel-box"></div>
+            <div class="wheel-scroll no-scrollbar" id="wheelDiastolic"></div>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="saveBpModal()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-2xl text-xs shadow-md">儲存血壓數值</button>
+    </div>
+  </div>
+
+  <!-- 3. 心跳 Modal -->
+  <div id="hrModal" onclick="onBackdropClick(event, 'hrModal')" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl p-5 w-full max-w-xs shadow-2xl space-y-4 text-center" onclick="event.stopPropagation()">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-black text-sm text-slate-800">調整心跳 (bpm)</h3>
+        <button onclick="closeModal('hrModal')" class="text-slate-400 font-bold text-lg">&times;</button>
+      </div>
+
+      <div class="wheel-outer max-w-[170px] mx-auto">
+        <div class="wheel-box"></div>
+        <div class="wheel-scroll no-scrollbar text-center" id="wheelHeartRate"></div>
+      </div>
+
+      <button onclick="saveHrModal()" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-2xl text-xs shadow-md">儲存心跳數值</button>
+    </div>
+  </div>
+
+  <!-- 4. 體重 Number Pad Modal -->
+  <div id="weightPadModal" onclick="onBackdropClick(event, 'weightPadModal')" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl p-5 w-full max-w-xs shadow-2xl space-y-3.5" onclick="event.stopPropagation()">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-black text-sm text-slate-800">輸入體重</h3>
+        <div class="relative w-24 h-7 bg-slate-100 rounded-full p-0.5 flex items-center cursor-pointer border border-slate-200" onclick="toggleWeightUnit()">
+          <div id="padUnitSlider" class="absolute left-0.5 top-0.5 w-[calc(50%-2px)] h-6 bg-teal-600 rounded-full transition-transform duration-200"></div>
+          <span id="labelKg" class="relative z-10 w-1/2 text-center text-[10px] font-bold text-white">KG</span>
+          <span id="labelLb" class="relative z-10 w-1/2 text-center text-[10px] font-bold text-slate-500">LB</span>
+        </div>
+      </div>
+
+      <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center">
+        <span id="padDisplayWeight" class="font-mono text-3xl font-black text-teal-700 tracking-wider">68.5</span>
+        <span id="padUnitText" class="text-xs font-bold text-slate-400 ml-1">kg</span>
+      </div>
+
+      <div class="space-y-2 pt-1 font-mono text-lg font-bold text-slate-700">
+        <div class="grid grid-cols-3 gap-2">
+          <button onclick="pressPadDigit('1')" class="py-3 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95">1</button>
+          <button onclick="pressPadDigit('2')" class="py-3 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95">2</button>
+          <button onclick="pressPadDigit('3')" class="py-3 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95">3</button>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <button onclick="pressPadDigit('4')" class="py-3 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95">4</button>
+          <button onclick="pressPadDigit('5')" class="py-3 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95">5</button>
+          <button onclick="pressPadDigit('6')" class="py-3 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95">6</button>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <button onclick="pressPadDigit('7')" class="py-3 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95">7</button>
+          <button onclick="pressPadDigit('8')" class="py-3 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95">8</button>
+          <button onclick="pressPadDigit('9')" class="py-3 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95">9</button>
+        </div>
+        <div class="grid grid-cols-4 gap-2">
+          <button onclick="pressPadDigit('.')" class="py-3 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 font-black">.</button>
+          <button onclick="pressPadDigit('0')" class="py-3 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95">0</button>
+          <button onclick="pressPadBackspace()" class="py-3 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 active:scale-95 text-base font-black">⌫</button>
+          <button onclick="clearWeightPad()" class="py-3 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 active:scale-95 text-xs font-black">C 清除</button>
+        </div>
+      </div>
+
+      <button onclick="saveWeightPad()" class="w-full bg-teal-600 text-white font-bold py-3 rounded-2xl text-xs shadow-md">確認並儲存體重</button>
+    </div>
+  </div>
+
+  <!-- 5. 歷史日誌 Modal (手風琴式折疊聚合) -->
+  <div id="historyCalendarModal" onclick="onBackdropClick(event, 'historyCalendarModal')" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl p-5 w-full max-w-sm shadow-2xl space-y-3.5 max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-black text-sm text-slate-800">📅 歷史健康與飲食回顧</h3>
+        <button onclick="closeModal('historyCalendarModal')" class="text-slate-400 font-bold text-lg">&times;</button>
+      </div>
+
+      <div class="space-y-2 bg-slate-50 p-3 rounded-2xl border border-slate-200/70">
+        <div class="flex justify-between items-center text-xs font-bold text-slate-700">
+          <button onclick="changeHistCalMonth(-1)" class="p-1 px-2 rounded-lg bg-white shadow-sm active:scale-95">◀</button>
+          <span id="histCalMonthYearTitle" class="font-mono text-sm font-black">--</span>
+          <button onclick="changeHistCalMonth(1)" class="p-1 px-2 rounded-lg bg-white shadow-sm active:scale-95">▶</button>
+        </div>
+        <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 pt-1">
+          <span class="text-rose-400">日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span class="text-sky-400">六</span>
+        </div>
+        <div id="histCalDaysGrid" class="grid grid-cols-7 gap-1 text-xs font-mono"></div>
+      </div>
+
+      <div class="border-t pt-2 space-y-2">
+        <div class="flex justify-between items-center">
+          <span class="text-xs font-bold text-slate-700" id="histSelectedDateTitle">選取日期紀錄</span>
+          <span id="histDayBadge" class="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold">明細</span>
+        </div>
+        <div id="histDateContent" class="space-y-2 text-xs">
+          <div class="text-slate-400 text-center py-4 italic">請點選月曆日期檢視當日數據</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. 歷史紀錄修改 Modal -->
+  <div id="editDietModal" onclick="onBackdropClick(event, 'editDietModal')" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl p-5 w-full max-w-sm shadow-2xl space-y-3" onclick="event.stopPropagation()">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-black text-sm text-slate-800">✏️ 修改飲食紀錄</h3>
+        <button onclick="closeModal('editDietModal')" class="text-slate-400 font-bold text-lg">&times;</button>
+      </div>
+
+      <input type="hidden" id="editRowNumber">
+      <div class="space-y-2 text-xs">
+        <div>
+          <label class="text-[10px] font-bold text-slate-400 block mb-0.5">餐點食物描述</label>
+          <input type="text" id="editDietDesc" class="w-full bg-slate-50 border rounded-xl px-3 py-2 font-medium">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-[10px] font-bold text-slate-400 block mb-0.5">熱量 (kcal)</label>
+            <input type="number" id="editDietCal" class="w-full bg-slate-50 border rounded-xl px-2 py-1.5 text-center font-mono">
+          </div>
+          <div>
+            <label class="text-[10px] font-bold text-slate-400 block mb-0.5">水分 (ml)</label>
+            <input type="number" id="editDietWater" class="w-full bg-slate-50 border rounded-xl px-2 py-1.5 text-center font-mono">
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-2 text-[10px] text-amber-800 leading-tight">
+        ⚠️ 注意：人手修改後，AI 將不再自動重新分析或覆蓋此餐卡路里，除非日後主動要求。
+      </div>
+
+      <button onclick="submitEditDietRecord()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-2xl text-xs shadow-md">
+        確認並更新紀錄
+      </button>
+    </div>
+  </div>
+
+  <!-- 7. 系統設定 Modal -->
+  <div id="configModal" onclick="onBackdropClick(event, 'configModal')" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl p-5 w-full max-w-sm shadow-2xl space-y-4" onclick="event.stopPropagation()">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-black text-sm text-slate-800">⚙️ 系統設定</h3>
+        <button onclick="closeModal('configModal')" class="text-slate-400 font-bold text-lg">&times;</button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="text-[10px] font-bold text-slate-400 block mb-1">您的年齡 (計算理想血壓上限)</label>
+          <input type="number" id="cfgUserAge" placeholder="例：36" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold">
+        </div>
+        <div>
+          <label class="text-[10px] font-bold text-slate-400 block mb-1">個人 Google Spreadsheet 網址或 ID</label>
+          <input type="text" id="cfgSheetId" placeholder="貼上你的 Google Sheet 網址或 ID" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-mono">
+          <span class="text-[9px] text-emerald-600 block mt-1">✓ 支援直接貼上完整網址，系統會自動提取 ID</span>
+        </div>
+      </div>
+
+      <button onclick="saveConfigSettings()" class="w-full bg-emerald-500 text-white font-bold py-3 rounded-2xl text-xs shadow-md">儲存設定</button>
+    </div>
+  </div>
+
+  <!-- 8. 自訂食物與飲品管理 Modal -->
+  <div id="presetManagerModal" onclick="onBackdropClick(event, 'presetManagerModal')" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl p-5 w-full max-w-sm shadow-2xl space-y-3.5 max-h-[88vh] overflow-y-auto" onclick="event.stopPropagation()">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-black text-sm text-slate-800">⚙️ 管理常用食物與飲品</h3>
+        <button onclick="closeModal('presetManagerModal')" class="text-slate-400 font-bold text-lg">&times;</button>
+      </div>
+
+      <div class="flex bg-slate-100 p-1 rounded-xl text-[11px] font-bold text-slate-600">
+        <button type="button" onclick="switchPresetManageTab('早餐')" id="tabPreset早餐" class="flex-1 py-1 rounded-lg bg-white text-emerald-700 shadow-sm">🍳 早餐</button>
+        <button type="button" onclick="switchPresetManageTab('午餐')" id="tabPreset午餐" class="flex-1 py-1 rounded-lg">🥗 午餐</button>
+        <button type="button" onclick="switchPresetManageTab('晚餐')" id="tabPreset晚餐" class="flex-1 py-1 rounded-lg">🍲 晚餐</button>
+        <button type="button" onclick="switchPresetManageTab('下午茶/小食')" id="tabPreset下午茶/小食" class="flex-1 py-1 rounded-lg">☕ 小食</button>
+        <button type="button" onclick="switchPresetManageTab('drinks')" id="tabPresetdrinks" class="flex-1 py-1 rounded-lg">🥤 飲品</button>
+      </div>
+
+      <div class="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+        <span class="text-[11px] font-bold text-slate-700 block" id="presetAddTitle">+ 新增項目</span>
+        
+        <div id="presetDrinkMlGroup" class="hidden">
+          <label class="text-[9px] font-bold text-slate-400 block mb-0.5">預設水分容量 (ml)</label>
+          <input type="number" id="newPresetMl" placeholder="350" class="w-full bg-white border border-slate-200 rounded-xl px-2 py-1.5 text-xs text-center font-mono">
+        </div>
+
+        <div class="space-y-1.5">
+          <div class="flex justify-between items-center">
+            <label class="text-[9px] font-bold text-slate-400">圖示 (點選 Emoji 或直接影相)</label>
+            <label class="text-[10px] font-bold text-emerald-600 cursor-pointer bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
+              📸 影低真相片
+              <input type="file" accept="image/*" id="inputPresetRealPhoto" class="hidden" onchange="handlePresetPhotoUpload(event)">
+            </label>
+          </div>
+
+          <div id="presetPhotoPreviewContainer" class="hidden flex items-center gap-2 p-1.5 bg-emerald-50/70 border border-emerald-200 rounded-xl">
+            <img id="presetPhotoThumb" class="w-10 h-10 rounded-lg object-cover">
+            <span class="text-[10px] font-bold text-emerald-800 flex-1">已綁定相片 (往後免拍)</span>
+            <button type="button" onclick="clearPresetPhoto()" class="text-rose-500 font-black text-xs px-1">✖</button>
+          </div>
+
+          <div id="emojiPickerGrid" class="grid grid-cols-7 gap-1.5 p-2 bg-white border border-slate-200 rounded-xl text-center text-lg cursor-pointer"></div>
+          <input type="hidden" id="selectedPresetIcon" value="🥪">
+          <input type="hidden" id="selectedPresetRealPhotoUrl" value="">
+        </div>
+
+        <div>
+          <label class="text-[9px] font-bold text-slate-400 block mb-0.5">項目名稱</label>
+          <div class="flex items-center gap-1.5">
+            <span id="previewSelectedIcon" class="text-xl p-1 bg-white border border-slate-200 rounded-lg">🥪</span>
+            <input type="text" id="newPresetName" placeholder="例：火腿煎蛋多士 / 凍檸茶走甜" class="flex-1 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-medium">
+          </div>
+        </div>
+
+        <button onclick="addNewPresetItem()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 rounded-xl text-xs shadow-sm">+ 新增至此餐別選單</button>
+      </div>
+
+      <div class="space-y-1.5">
+        <div class="flex justify-between items-center">
+          <span class="text-[11px] font-bold text-slate-500 block">現有常用項目 (可拖動上下調整排序)</span>
+          <span class="text-[9px] text-slate-400">☰ 拖曳換位</span>
+        </div>
+        <div id="presetItemsManageList" class="space-y-1.5 max-h-48 overflow-y-auto pr-1"></div>
+      </div>
+
+      <button onclick="saveAndClosePresetManager()" class="w-full bg-slate-800 text-white font-bold py-2.5 rounded-2xl text-xs">儲存並返回</button>
+    </div>
+  </div>
+
+  <canvas id="compressCanvas" class="hidden"></canvas>
+
+  <script>
+    // ==========================================
+    // 0. 前後端橋接與本地持久化引擎 (GitHub Pages 頂級架構)
+    // ==========================================
+    // 你的 Google Apps Script 部署 API 網址
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxSjJYgE_1p7HTpym3MurgvXRG9uX0DHMTgJC6sshnaTt6fkRygDFByyrvLm0gyGouu/exec";
+
+    // 統一後端通訊函式
+    async function callGasApi(action, payload = {}) {
+      const sid = CONFIG.SHEET_ID;
+      try {
+        const response = await fetch(GAS_API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: action,
+            spreadsheetId: sid,
+            payload: payload
+          })
+        });
+        return await response.json();
+      } catch (err) {
+        console.error("API 通訊錯誤:", err);
+        return { status: "error", message: err.toString() };
+      }
+    }
+
+    function extractSpreadsheetId(input) {
+      if (!input) return "";
+      const match = input.match(/\/d\/([a-zA-Z0-9_-]+)/);
+      return match ? match[1] : input.trim();
+    }
+
+    function getSafeSidParam() {
+      try {
+        const topParams = new URLSearchParams(window.location.search);
+        if (topParams.get('sid')) return extractSpreadsheetId(topParams.get('sid'));
+      } catch (_) {}
+      return "";
+    }
+
+    const URL_SID = getSafeSidParam();
+    const CACHED_SID = extractSpreadsheetId(localStorage.getItem('pulsecore_sheet_id') || "");
+    const CACHED_AGE = (localStorage.getItem('pulsecore_user_age') || "").trim();
+
+    // 在 GitHub Pages 獨立 Origin 下，localStorage 永遠不會被 Safari 清空
+    const activeSheetId = URL_SID || CACHED_SID;
+    if (activeSheetId) localStorage.setItem('pulsecore_sheet_id', activeSheetId);
+
+    const activeAge = parseInt(CACHED_AGE || "40", 10);
+    localStorage.setItem('pulsecore_user_age', activeAge);
+
+    const CONFIG = {
+      SHEET_ID: activeSheetId,
+      USER_AGE: activeAge
+    };
+
+    const LAST_VITALS_CACHE_KEY = 'pulsecore_last_saved_vitals';
+    let cachedVitals = null;
+    try { cachedVitals = JSON.parse(localStorage.getItem(LAST_VITALS_CACHE_KEY)); } catch(_) {}
+
+    let selectedVitals = {
+      systolic: cachedVitals?.systolic ? Number(cachedVitals.systolic) : 118,
+      diastolic: cachedVitals?.diastolic ? Number(cachedVitals.diastolic) : 76,
+      heartRate: cachedVitals?.heartRate ? Number(cachedVitals.heartRate) : 72,
+      weight: cachedVitals?.weight ? Number(cachedVitals.weight) : 68.5,
+      unit: cachedVitals?.unit || 'kg'
+    };
+
+    function persistLastVitals() {
+      localStorage.setItem(LAST_VITALS_CACHE_KEY, JSON.stringify(selectedVitals));
+    }
+
+    function getNowIsoStrings() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      return {
+        date: `${year}-${month}-${day}`,
+        time: `${hours}:${minutes}`
+      };
+    }
+
+    const initialDt = getNowIsoStrings();
+    let currentSelectedDate = initialDt.date;
+    let currentSelectedTime = initialDt.time;
+    let stagedDietImages = [];
+    let selectedPresetPhotoUrl = "";
+
+    const AVAILABLE_ICONS = {
+      food: ["🥪", "🍳", "🍚", "🍜", "🥗", "🍞", "🥩", "🍗", "🐟", "🥟", "🍣", "🍛", "🍔", "🍕"],
+      drink: ["🍋", "☕", "🍵", "🧴", "🥤", "🧋", "🥛", "🧃", "🧊", "🍺", "🍼", "🫖", "🥥", "🍶"]
+    };
+
+    const DEFAULT_PRESETS_V2 = {
+      "早餐": [
+        { id: "b1", name: "腿蛋治", icon: "🥪" },
+        { id: "b2", name: "火腿煎蛋多士", icon: "🍳" }
+      ],
+      "午餐": [
+        { id: "l1", name: "沙嗲牛肉麵", icon: "🍜" },
+        { id: "l2", name: "叉燒煎蛋飯", icon: "🍚" }
+      ],
+      "晚餐": [
+        { id: "d1", name: "蒸水蛋肉餅飯", icon: "🍚" },
+        { id: "d2", name: "外賣沙律", icon: "🥗" }
+      ],
+      "下午茶/小食": [
+        { id: "s1", name: "蛋撻", icon: "🥧" },
+        { id: "s2", name: "牛角包", icon: "🥐" }
+      ],
+      "drinks": [
+        { id: "dr1", name: "凍檸茶走甜", icon: "🍋", ml: 350 },
+        { id: "dr2", name: "熱奶茶", icon: "☕", ml: 250 },
+        { id: "dr3", name: "黑咖啡", icon: "☕", ml: 200 },
+        { id: "dr4", name: "保溫壺清水", icon: "🧴", ml: 500 }
+      ]
+    };
+
+    let userDietPresets = DEFAULT_PRESETS_V2;
+    try {
+      const localPresetsStr = localStorage.getItem('pulsecore_diet_presets_v2');
+      const loaded = JSON.parse(localPresetsStr || "null");
+      if (loaded && loaded["早餐"] && loaded["drinks"]) userDietPresets = loaded;
+    } catch (_) {}
+
+    let recentTwoWeeksHistory = [];
+    let chartPeriodDays = 7;
+    let chartTypeMode = 'bp';
+    let healthChartInstance = null;
+    let realHistoryData = [];
+
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('cardSys').innerText = selectedVitals.systolic;
+      document.getElementById('cardDia').innerText = selectedVitals.diastolic;
+      document.getElementById('cardHr').innerText = selectedVitals.heartRate;
+      document.getElementById('cardWeight').innerText = selectedVitals.weight;
+      document.getElementById('cardWeightUnit').innerText = selectedVitals.unit;
+
+      onMealTypeChange();
+      initLoopTimeWheels();
+      initVitalsScrollWheels();
+      updateDateTimeDisplay();
+
+      if (CONFIG.SHEET_ID) {
+        fetchRealHistoryAndRenderChart();
+        fetchRecentDietHistory();
+      } else {
+        openConfigModal();
+        showToast("歡迎！請先設定你的 Google Sheet 網址以啟用功能。", true);
+      }
+    });
+
+    function onBackdropClick(e, modalId) {
+      if (e.target.id === modalId) closeModal(modalId);
+    }
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.add('hidden');
+    }
+
+    // ==========================================
+    // 1. 生理指標與體重鍵盤
+    // ==========================================
+    function initVitalsScrollWheels() {
+      fillFixedWheel('wheelSystolic', 70, 220);
+      fillFixedWheel('wheelDiastolic', 40, 140);
+      fillFixedWheel('wheelHeartRate', 40, 180);
+    }
+
+    function fillFixedWheel(id, min, max) {
+      const el = document.getElementById(id);
+      let html = "";
+      for (let i = min; i <= max; i++) html += `<div class="wheel-item" data-val="${i}">${i}</div>`;
+      el.innerHTML = html;
+    }
+
+    function openBpModal() {
+      document.getElementById('bpModal').classList.remove('hidden');
+      setTimeout(() => {
+        document.getElementById('wheelSystolic').scrollTop = (selectedVitals.systolic - 70) * 40;
+        document.getElementById('wheelDiastolic').scrollTop = (selectedVitals.diastolic - 40) * 40;
+      }, 60);
+    }
+
+    function saveBpModal() {
+      const sIdx = Math.round(document.getElementById('wheelSystolic').scrollTop / 40);
+      const dIdx = Math.round(document.getElementById('wheelDiastolic').scrollTop / 40);
+      selectedVitals.systolic = 70 + sIdx;
+      selectedVitals.diastolic = 40 + dIdx;
+      document.getElementById('cardSys').innerText = selectedVitals.systolic;
+      document.getElementById('cardDia').innerText = selectedVitals.diastolic;
+      persistLastVitals();
+      closeModal('bpModal');
+    }
+
+    function openHrModal() {
+      document.getElementById('hrModal').classList.remove('hidden');
+      setTimeout(() => {
+        document.getElementById('wheelHeartRate').scrollTop = (selectedVitals.heartRate - 40) * 40;
+      }, 60);
+    }
+
+    function saveHrModal() {
+      const idx = Math.round(document.getElementById('wheelHeartRate').scrollTop / 40);
+      selectedVitals.heartRate = 40 + idx;
+      document.getElementById('cardHr').innerText = selectedVitals.heartRate;
+      persistLastVitals();
+      closeModal('hrModal');
+    }
+
+    let padCurrentStr = "68.5";
+    function openWeightPadModal() {
+      padCurrentStr = String(selectedVitals.weight);
+      updatePadDisplay();
+      document.getElementById('weightPadModal').classList.remove('hidden');
+    }
+    function pressPadDigit(digit) {
+      if (digit === '.' && padCurrentStr.includes('.')) return;
+      if (padCurrentStr === "0" && digit !== '.') padCurrentStr = "";
+      if (padCurrentStr.length >= 5) return;
+      padCurrentStr += digit;
+      updatePadDisplay();
+    }
+    function pressPadBackspace() {
+      padCurrentStr = padCurrentStr.slice(0, -1) || "0";
+      updatePadDisplay();
+    }
+    function clearWeightPad() {
+      padCurrentStr = "0";
+      updatePadDisplay();
+    }
+    function updatePadDisplay() {
+      document.getElementById('padDisplayWeight').innerText = padCurrentStr;
+    }
+    function toggleWeightUnit() {
+      selectedVitals.unit = (selectedVitals.unit === 'kg') ? 'lb' : 'kg';
+      const slider = document.getElementById('padUnitSlider');
+      const isLb = selectedVitals.unit === 'lb';
+      slider.classList.toggle('translate-x-full', isLb);
+      document.getElementById('labelKg').className = isLb ? 'relative z-10 w-1/2 text-center text-[10px] font-bold text-slate-500' : 'relative z-10 w-1/2 text-center text-[10px] font-bold text-white';
+      document.getElementById('labelLb').className = isLb ? 'relative z-10 w-1/2 text-center text-[10px] font-bold text-white' : 'relative z-10 w-1/2 text-center text-[10px] font-bold text-slate-500';
+      document.getElementById('padUnitText').innerText = selectedVitals.unit;
+      document.getElementById('cardWeightUnit').innerText = selectedVitals.unit;
+    }
+    function saveWeightPad() {
+      selectedVitals.weight = parseFloat(padCurrentStr) || 0;
+      document.getElementById('cardWeight').innerText = selectedVitals.weight;
+      persistLastVitals();
+      closeModal('weightPadModal');
+    }
+
+    function initLoopTimeWheels() {
+      setupInfiniteWheel('wheelHour', 24);
+      setupInfiniteWheel('wheelMinute', 60);
+    }
+    function setupInfiniteWheel(id, count) {
+      const el = document.getElementById(id);
+      let html = "";
+      for (let rep = 0; rep < 3; rep++) {
+        for (let i = 0; i < count; i++) html += `<div class="wheel-item" data-val="${i}">${String(i).padStart(2,'0')}</div>`;
+      }
+      el.innerHTML = html;
+      setTimeout(() => el.scrollTop = count * 40, 50);
+    }
+    function handleInfiniteScroll(id, count) {
+      const el = document.getElementById(id);
+      const totalBlockHeight = count * 40;
+      if (el.scrollTop < totalBlockHeight * 0.5) el.scrollTop += totalBlockHeight;
+      else if (el.scrollTop > totalBlockHeight * 1.8) el.scrollTop -= totalBlockHeight;
+    }
+    function getInfiniteWheelVal(id, count) {
+      return Math.round(document.getElementById(id).scrollTop / 40) % count;
+    }
+
+    let calViewYear = new Date().getFullYear();
+    let calViewMonth = new Date().getMonth();
+    function openDateTimePickerModal() {
+      const parts = currentSelectedDate.split('-');
+      calViewYear = parseInt(parts[0], 10);
+      calViewMonth = parseInt(parts[1], 10) - 1;
+      renderCalendarDays();
+
+      const [h, m] = currentSelectedTime.split(':').map(Number);
+      document.getElementById('dateTimePickerModal').classList.remove('hidden');
+      setTimeout(() => {
+        document.getElementById('wheelHour').scrollTop = (24 + h) * 40;
+        document.getElementById('wheelMinute').scrollTop = (60 + m) * 40;
+      }, 60);
+    }
+
+    function renderCalendarDays() {
+      document.getElementById('calMonthYearTitle').innerText = `${calViewYear} 年 ${String(calViewMonth + 1).padStart(2, '0')} 月`;
+      const grid = document.getElementById('calDaysGrid');
+      grid.innerHTML = "";
+      const firstDay = new Date(calViewYear, calViewMonth, 1).getDay();
+      const totalDays = new Date(calViewYear, calViewMonth + 1, 0).getDate();
+
+      for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div class="h-8"></div>`;
+      for (let d = 1; d <= totalDays; d++) {
+        const dStr = `${calViewYear}-${String(calViewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const isSelected = (dStr === currentSelectedDate);
+        grid.innerHTML += `
+          <button type="button" onclick="currentSelectedDate='${dStr}'; renderCalendarDays();" class="h-8 rounded-xl flex items-center justify-center transition-all ${isSelected ? 'bg-emerald-500 text-white font-bold' : 'hover:bg-slate-200 text-slate-700'}">
+            ${d}
+          </button>`;
+      }
+    }
+
+    function changeCalMonth(offset) {
+      calViewMonth += offset;
+      if (calViewMonth < 0) { calViewMonth = 11; calViewYear--; }
+      else if (calViewMonth > 11) { calViewMonth = 0; calViewYear++; }
+      renderCalendarDays();
+    }
+    function confirmDateTimePicker() {
+      const h = getInfiniteWheelVal('wheelHour', 24);
+      const m = getInfiniteWheelVal('wheelMinute', 60);
+      currentSelectedTime = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+      updateDateTimeDisplay();
+      closeModal('dateTimePickerModal');
+    }
+    function updateDateTimeDisplay() {
+      const today = getNowIsoStrings().date;
+      document.getElementById('displaySelectedDateTime').innerText = `${currentSelectedDate === today ? "今日" : currentSelectedDate.slice(5)} ${currentSelectedTime}`;
+    }
+
+    function showToast(msg, isSuccess = true) {
+      const t = document.getElementById('toastNotification');
+      document.getElementById('toastMsg').innerText = msg;
+      document.getElementById('toastIcon').innerText = isSuccess ? '✅' : '❌';
+      t.className = isSuccess 
+        ? 'fixed top-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl shadow-xl font-bold text-xs flex items-center gap-2 transition-all duration-300 opacity-100 translate-y-0 bg-emerald-600 text-white'
+        : 'fixed top-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl shadow-xl font-bold text-xs flex items-center gap-2 transition-all duration-300 opacity-100 translate-y-0 bg-rose-600 text-white';
+
+      setTimeout(() => {
+        t.className = 'fixed top-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl shadow-xl font-bold text-xs flex items-center gap-2 transition-all duration-300 opacity-0 pointer-events-none -translate-y-4';
+      }, 2500);
+    }
+
+    function parseSafeTime(dStr, tStr) {
+      if (!dStr) return 0;
+      const parts = String(dStr).split(/[-/]/);
+      if (parts.length < 3) return 0;
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parseInt(parts[2], 10);
+      const tParts = String(tStr || "00:00").split(':');
+      const h = parseInt(tParts[0], 10) || 0;
+      const min = parseInt(tParts[1], 10) || 0;
+      return new Date(y, m, d, h, min, 0).getTime();
+    }
+
+    async function submitVitalsRecord() {
+      const saveBp = document.getElementById('checkSaveBp').checked;
+      const saveHr = document.getElementById('checkSaveHr').checked;
+      const saveWt = document.getElementById('checkSaveWt').checked;
+
+      if (!saveBp && !saveHr && !saveWt) return showToast("請至少勾選一項指標！", false);
+
+      const targetId = CONFIG.SHEET_ID;
+      if (!targetId) return showToast("請先點右上角 ⚙️ 設定並儲存你的 Google Sheet ID！", false);
+
+      const btn = document.getElementById('btnSaveVitals');
+      const origText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<span class="inline-block animate-spin mr-1">⏳</span> 正在寫入 Google Sheet...`;
+
+      const payload = {
+        date: currentSelectedDate,
+        time: currentSelectedTime,
+        systolic: saveBp ? selectedVitals.systolic : "",
+        diastolic: saveBp ? selectedVitals.diastolic : "",
+        heart_rate: saveHr ? selectedVitals.heartRate : "",
+        weight: saveWt ? selectedVitals.weight : "",
+        unit: selectedVitals.unit,
+        notes: "PulseCore GitHub App"
+      };
+
+      const res = await callGasApi("logVitals", payload);
+      btn.disabled = false;
+      btn.innerHTML = origText;
+
+      if (res?.status === "success") {
+        persistLastVitals();
+        showToast("身體指標已成功寫入 Google Sheet！", true);
+
+        realHistoryData.push({
+          date: payload.date,
+          time: payload.time,
+          timestamp: parseSafeTime(payload.date, payload.time),
+          systolic: payload.systolic !== "" ? Number(payload.systolic) : null,
+          diastolic: payload.diastolic !== "" ? Number(payload.diastolic) : null,
+          heart_rate: payload.heart_rate !== "" ? Number(payload.heart_rate) : null,
+          weight: payload.weight !== "" ? Number(payload.weight) : null,
+          unit: payload.unit
+        });
+        renderChartWithData(realHistoryData);
+      } else {
+        showToast(`寫入失敗: ${res?.message || '未知錯誤'}`, false);
+      }
+    }
+
+    // ==========================================
+    // 2. 飲食模組 (分餐別自訂庫 + 真相片 + 近 2 週動態推薦)
+    // ==========================================
+    function onMealTypeChange() {
+      const type = document.getElementById('dietMealType').value;
+      const isPureWater = (type === '水分補充');
+      
+      document.getElementById('foodPresetsContainer').classList.toggle('hidden', isPureWater);
+      document.getElementById('mealTypeSubHint').innerText = isPureWater ? "純水分記錄" : "食物配飲品";
+      document.getElementById('foodSliderTitle').innerText = `🍱 ${type}常用主食 (點擊直接加入)`;
+
+      renderMealSpecificFoodSlider();
+      renderDrinkSlider();
+    }
+
+    function renderMealSpecificFoodSlider() {
+      const curMeal = document.getElementById('dietMealType').value;
+      const slider = document.getElementById('foodPresetsSlider');
+      if (!slider) return;
+
+      const userItems = userDietPresets[curMeal] || [];
+      const recentForMeal = recentTwoWeeksHistory.filter(r => r.mealType === curMeal && !userItems.some(u => u.name === r.name));
+
+      let html = userItems.map(item => {
+        const hasPhoto = item.photoUrl;
+        const directImg = hasPhoto ? getDirectDriveImageUrl(item.photoUrl) : "";
+        return `
+          <button type="button" onclick="appendFoodItem('${item.name}', '${item.photoUrl || ''}')" 
+               class="flex-shrink-0 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 rounded-2xl p-2 min-w-[76px] text-center active:scale-95 transition-all">
+            ${hasPhoto ? `<img src="${directImg}" class="w-8 h-8 rounded-lg object-cover mx-auto mb-0.5 border border-emerald-200">` : `<span class="text-lg block mb-0.5">${item.icon || '🍱'}</span>`}
+            <span class="text-xs font-bold block truncate max-w-[85px]">${item.name}</span>
+          </button>
+        `;
+      }).join('');
+
+      if (recentForMeal.length > 0) {
+        html += recentForMeal.map(item => {
+          const directImg = item.imageUrl ? getDirectDriveImageUrl(item.imageUrl) : "";
+          return `
+            <button type="button" onclick="appendFoodItem('${item.name}', '${item.imageUrl || ''}')" 
+                 class="flex-shrink-0 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-2xl p-2 min-w-[76px] text-center active:scale-95 transition-all">
+              ${item.imageUrl ? `<img src="${directImg}" class="w-8 h-8 rounded-lg object-cover mx-auto mb-0.5 border border-amber-300">` : `<span class="text-lg block mb-0.5">⏱️</span>`}
+              <span class="text-xs font-bold block truncate max-w-[85px]">${item.name}</span>
+              <span class="text-[9px] text-amber-600 block">[近2週]</span>
+            </button>
+          `;
+        }).join('');
+      }
+
+      slider.innerHTML = html || `<span class="text-xs text-slate-400 italic py-2">此餐別暫無常用項目，可點右上角管理新增</span>`;
+    }
+
+    function renderDrinkSlider() {
+      const slider = document.getElementById('drinkPresetsSlider');
+      if (!slider) return;
+
+      slider.innerHTML = (userDietPresets.drinks || []).map(item => {
+        const hasPhoto = item.photoUrl;
+        const directImg = hasPhoto ? getDirectDriveImageUrl(item.photoUrl) : "";
+        return `
+          <button type="button" onclick="appendDrinkItem('${item.name}', ${item.ml || 0}, '${item.photoUrl || ''}')" 
+               class="flex-shrink-0 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-800 rounded-2xl p-2 min-w-[76px] text-center active:scale-95 transition-all">
+            ${hasPhoto ? `<img src="${directImg}" class="w-8 h-8 rounded-lg object-cover mx-auto mb-0.5 border border-sky-200">` : `<span class="text-lg block mb-0.5">${item.icon || '🥤'}</span>`}
+            <span class="text-xs font-bold block truncate max-w-[85px]">${item.name}</span>
+            <span class="text-[9px] font-mono font-bold text-sky-600 block">${item.ml ? `${item.ml}ml` : ''}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function appendFoodItem(name, photoUrl) {
+      const descInput = document.getElementById('dietMealDesc');
+      let cur = descInput.value.trim();
+      if (!cur) {
+        descInput.value = name;
+      } else if (!cur.includes(name)) {
+        descInput.value = `${cur} + ${name}`;
+      }
+
+      if (photoUrl) {
+        selectedPresetPhotoUrl = photoUrl;
+        renderPresetPhotoBadge(photoUrl);
+      }
+    }
+
+    function appendDrinkItem(name, ml, photoUrl) {
+      const descInput = document.getElementById('dietMealDesc');
+      let cur = descInput.value.trim();
+      if (!cur) {
+        descInput.value = name;
+      } else if (!cur.includes(name)) {
+        descInput.value = `${cur} + ${name}`;
+      }
+
+      if (ml > 0) {
+        const waterInput = document.getElementById('dietWaterMl');
+        const curMl = Number(waterInput.value) || 0;
+        waterInput.value = curMl + ml;
+      }
+
+      if (photoUrl && !selectedPresetPhotoUrl) {
+        selectedPresetPhotoUrl = photoUrl;
+        renderPresetPhotoBadge(photoUrl);
+      }
+    }
+
+    function renderPresetPhotoBadge(photoUrl) {
+      const container = document.getElementById('dietImagePreviewList');
+      const direct = getDirectDriveImageUrl(photoUrl);
+      container.innerHTML = `
+        <div class="relative w-12 h-12 rounded-xl overflow-hidden border border-emerald-300 flex-shrink-0 shadow-sm">
+          <img src="${direct}" class="w-full h-full object-cover">
+          <span class="absolute bottom-0 inset-x-0 bg-emerald-600 text-white text-[8px] text-center font-bold">預設真相</span>
+          <button onclick="clearSelectedPresetPhoto()" class="absolute top-0 right-0 bg-black/60 text-white text-[9px] w-4 h-4 flex items-center justify-center rounded-bl">&times;</button>
+        </div>
+      `;
+    }
+
+    function clearSelectedPresetPhoto() {
+      selectedPresetPhotoUrl = "";
+      renderStagedImagePreviews();
+    }
+
+    function addWaterMl(val) {
+      const waterInput = document.getElementById('dietWaterMl');
+      waterInput.value = (Number(waterInput.value) || 0) + val;
+    }
+
+    function clearDietDesc() {
+      document.getElementById('dietMealDesc').value = "";
+      document.getElementById('dietWaterMl').value = "";
+      selectedPresetPhotoUrl = "";
+      stagedDietImages = [];
+      renderStagedImagePreviews();
+    }
+
+    async function fetchRecentDietHistory() {
+      if (!CONFIG.SHEET_ID) return;
+      const res = await callGasApi("getRecentDietHistory");
+      if (res && res.status === "success" && Array.isArray(res.data)) {
+        recentTwoWeeksHistory = res.data;
+        renderMealSpecificFoodSlider();
+      }
+    }
+
+    // ==========================================
+    // 3. 管理常用項目 (分餐別 + 支援真圖 + 拖曳)
+    // ==========================================
+    let currentManageTab = "早餐";
+
+    function openPresetManagerModal() {
+      currentManageTab = document.getElementById('dietMealType').value;
+      if (currentManageTab === '水分補充') currentManageTab = '早餐';
+      switchPresetManageTab(currentManageTab);
+      document.getElementById('presetManagerModal').classList.remove('hidden');
+    }
+
+    function switchPresetManageTab(tabKey) {
+      currentManageTab = tabKey;
+      ['早餐', '午餐', '晚餐', '下午茶/小食', 'drinks'].forEach(k => {
+        const btn = document.getElementById('tabPreset' + k);
+        if (btn) btn.className = (k === tabKey) ? 'flex-1 py-1 rounded-lg bg-white text-emerald-700 shadow-sm' : 'flex-1 py-1 rounded-lg text-slate-500';
+      });
+
+      const isDrink = (tabKey === 'drinks');
+      document.getElementById('presetDrinkMlGroup').classList.toggle('hidden', !isDrink);
+      document.getElementById('presetAddTitle').innerText = isDrink ? "+ 新增常用飲品" : `+ 新增【${tabKey}】常用食物`;
+
+      renderEmojiPicker(isDrink ? 'drink' : 'food');
+      renderPresetManageList();
+    }
+
+    function renderEmojiPicker(type) {
+      const icons = AVAILABLE_ICONS[type] || AVAILABLE_ICONS.food;
+      const container = document.getElementById('emojiPickerGrid');
+      
+      container.innerHTML = icons.map((ic, i) => `
+        <div onclick="selectPresetEmoji('${ic}')" class="p-1 rounded-lg hover:bg-slate-100 transition-all ${i===0 ? 'bg-slate-100' : ''}">
+          ${ic}
+        </div>
+      `).join('');
+
+      selectPresetEmoji(icons[0]);
+    }
+
+    function selectPresetEmoji(icon) {
+      document.getElementById('selectedPresetIcon').value = icon;
+      document.getElementById('previewSelectedIcon').innerText = icon;
+    }
+
+    function handlePresetPhotoUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = evt => {
+        const img = new Image();
+        img.onload = async () => {
+          const canvas = document.getElementById('compressCanvas');
+          const maxDim = 800;
+          let w = img.width, h = img.height;
+          if (w > h && w > maxDim) { h = Math.round((h * maxDim) / w); w = maxDim; }
+          else if (h > maxDim) { w = Math.round((w * maxDim) / h); h = maxDim; }
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          const b64 = canvas.toDataURL('image/jpeg', 0.8);
+
+          showToast("正在上傳預設相片至 Drive...", true);
+          const res = await callGasApi("uploadPresetPhoto", { base64Data: b64, name: "preset" });
+          if (res && res.status === "success") {
+            document.getElementById('selectedPresetRealPhotoUrl').value = res.url;
+            document.getElementById('presetPhotoThumb').src = getDirectDriveImageUrl(res.url);
+            document.getElementById('presetPhotoPreviewContainer').classList.remove('hidden');
+            showToast("相片已成功連結！", true);
+          } else {
+            showToast(`上傳失敗: ${res?.message}`, false);
+          }
+        };
+        img.src = evt.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearPresetPhoto() {
+      document.getElementById('selectedPresetRealPhotoUrl').value = "";
+      document.getElementById('presetPhotoPreviewContainer').classList.add('hidden');
+    }
+
+    function renderPresetManageList() {
+      const container = document.getElementById('presetItemsManageList');
+      const list = userDietPresets[currentManageTab] || [];
+
+      if (!list.length) {
+        container.innerHTML = `<span class="text-xs text-slate-400 italic">此分類目前無項目</span>`;
+        return;
+      }
+
+      container.innerHTML = list.map((item, idx) => {
+        const hasPhoto = item.photoUrl;
+        const directImg = hasPhoto ? getDirectDriveImageUrl(item.photoUrl) : "";
+        return `
+          <div draggable="true" data-index="${idx}" ondragstart="onDragStart(event)" ondragover="onDragOver(event)" ondrop="onDrop(event)" ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)"
+               class="drag-item flex items-center justify-between p-2 bg-slate-50 border rounded-xl text-xs font-bold cursor-move hover:bg-slate-100 transition-all">
+            <div class="flex items-center gap-2">
+              <span class="text-slate-400">☰</span>
+              ${hasPhoto ? `<img src="${directImg}" class="w-6 h-6 rounded-md object-cover border">` : `<span>${item.icon || '🍱'}</span>`}
+              <span>${item.name} ${item.ml ? `(${item.ml}ml)` : ''}</span>
+            </div>
+            <button onclick="removePresetItem(${idx})" class="text-rose-500 hover:text-rose-700 px-2 font-black">✖</button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    let dragSrcIndex = -1;
+    function onDragStart(e) {
+      dragSrcIndex = Number(e.currentTarget.getAttribute('data-index'));
+      e.dataTransfer.effectAllowed = 'move';
+    }
+    function onDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    }
+    function onDragEnter(e) {
+      e.currentTarget.classList.add('drag-over');
+    }
+    function onDragLeave(e) {
+      e.currentTarget.classList.remove('drag-over');
+    }
+    function onDrop(e) {
+      e.preventDefault();
+      e.currentTarget.classList.remove('drag-over');
+      const targetIndex = Number(e.currentTarget.getAttribute('data-index'));
+      if (dragSrcIndex !== -1 && dragSrcIndex !== targetIndex) {
+        const list = userDietPresets[currentManageTab];
+        const movedItem = list.splice(dragSrcIndex, 1)[0];
+        list.splice(targetIndex, 0, movedItem);
+        renderPresetManageList();
+      }
+    }
+
+    function addNewPresetItem() {
+      const name = document.getElementById('newPresetName').value.trim();
+      const icon = document.getElementById('selectedPresetIcon').value;
+      const photoUrl = document.getElementById('selectedPresetRealPhotoUrl').value;
+      const ml = Number(document.getElementById('newPresetMl').value) || 0;
+
+      if (!name) return showToast("請輸入項目名稱！", false);
+
+      if (!userDietPresets[currentManageTab]) userDietPresets[currentManageTab] = [];
+      
+      userDietPresets[currentManageTab].push({
+        id: "p_" + Date.now(),
+        name: name,
+        icon: icon,
+        photoUrl: photoUrl || "",
+        ml: (currentManageTab === 'drinks') ? ml : 0
+      });
+
+      document.getElementById('newPresetName').value = "";
+      document.getElementById('newPresetMl').value = "";
+      clearPresetPhoto();
+      renderPresetManageList();
+    }
+
+    function removePresetItem(idx) {
+      userDietPresets[currentManageTab].splice(idx, 1);
+      renderPresetManageList();
+    }
+
+    function saveAndClosePresetManager() {
+      const jsonStr = JSON.stringify(userDietPresets);
+      localStorage.setItem('pulsecore_diet_presets_v2', jsonStr);
+
+      onMealTypeChange();
+      closeModal('presetManagerModal');
+      showToast("常用飲食選單已同步！", true);
+    }
+
+    function handleMultiDietImages(e) {
+      const files = Array.from(e.target.files);
+      if (!files.length) return;
+
+      selectedPresetPhotoUrl = "";
+
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = evt => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.getElementById('compressCanvas');
+            const maxDim = 800;
+            let w = img.width, h = img.height;
+            if (w > h && w > maxDim) { h = Math.round((h * maxDim) / w); w = maxDim; }
+            else if (h > maxDim) { w = Math.round((w * maxDim) / h); h = maxDim; }
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            stagedDietImages.push(canvas.toDataURL('image/jpeg', 0.75));
+            renderStagedImagePreviews();
+          };
+          img.src = evt.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function renderStagedImagePreviews() {
+      const container = document.getElementById('dietImagePreviewList');
+      if (!stagedDietImages.length && !selectedPresetPhotoUrl) {
+        container.innerHTML = `<span class="text-[11px] text-slate-400 italic">尚未加入相片</span>`;
+        return;
+      }
+
+      let html = "";
+      if (selectedPresetPhotoUrl) {
+        const direct = getDirectDriveImageUrl(selectedPresetPhotoUrl);
+        html += `
+          <div class="relative w-12 h-12 rounded-xl overflow-hidden border border-emerald-300 flex-shrink-0 shadow-sm">
+            <img src="${direct}" class="w-full h-full object-cover">
+            <span class="absolute bottom-0 inset-x-0 bg-emerald-600 text-white text-[8px] text-center font-bold">預設真相</span>
+            <button onclick="clearSelectedPresetPhoto()" class="absolute top-0 right-0 bg-black/60 text-white text-[9px] w-4 h-4 flex items-center justify-center rounded-bl">&times;</button>
+          </div>
+        `;
+      }
+
+      html += stagedDietImages.map((b64, idx) => `
+        <div class="relative w-12 h-12 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0">
+          <img src="${b64}" class="w-full h-full object-cover">
+          <button onclick="stagedDietImages.splice(${idx},1); renderStagedImagePreviews();" class="absolute top-0 right-0 bg-black/60 text-white text-[9px] w-4 h-4 flex items-center justify-center rounded-bl">&times;</button>
+        </div>
+      `).join('');
+
+      container.innerHTML = html;
+    }
+
+    async function submitDietRecord() {
+      const desc = document.getElementById('dietMealDesc').value.trim();
+      if (!desc) return showToast("請輸入或點選餐點內容！", false);
+
+      const targetId = CONFIG.SHEET_ID;
+      if (!targetId) return showToast("請先點 ⚙️ 設定綁定 Google Sheet ID！", false);
+
+      const btn = document.getElementById('btnSubmitDiet');
+      btn.innerText = "入表中 (相片處理中)...";
+      btn.disabled = true;
+
+      const rememberQuick = document.getElementById('checkRememberQuickPreset').checked;
+
+      const payload = {
+        date: currentSelectedDate,
+        time: currentSelectedTime,
+        meal_type: document.getElementById('dietMealType').value,
+        description: desc,
+        calories: 0,
+        volume_ml: Number(document.getElementById('dietWaterMl').value) || 0,
+        images: stagedDietImages,
+        presetImageUrl: selectedPresetPhotoUrl || "",
+        remember_quick: rememberQuick
+      };
+
+      const res = await callGasApi("logDiet", payload);
+      btn.innerText = "入表記錄此餐 (AI 自動分析熱量)";
+      btn.disabled = false;
+
+      if (res?.status === "success") {
+        showToast("飲食紀錄已成功入表！", true);
+        clearDietDesc();
+        document.getElementById('checkRememberQuickPreset').checked = true;
+        fetchRecentDietHistory();
+      } else {
+        showToast(`寫入失敗: ${res?.message}`, false);
+      }
+    }
+
+    // ==========================================
+    // 4. 健康趨勢圖表
+    // ==========================================
+    async function fetchRealHistoryAndRenderChart() {
+      if (!CONFIG.SHEET_ID) {
+        renderChartWithData([]);
+        return;
+      }
+
+      const res = await callGasApi("getHistory", { daysLimit: chartPeriodDays });
+      if (res && res.status === "success" && Array.isArray(res.data)) {
+        realHistoryData = res.data;
+        renderChartWithData(realHistoryData);
+      } else {
+        renderChartWithData([]);
+      }
+    }
+
+    function renderChartWithData(dataList) {
+      const canvas = document.getElementById('healthTrendChart');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const age = parseInt(localStorage.getItem('pulsecore_user_age'), 10) || CONFIG.USER_AGE || 40;
+      const refSys = age < 50 ? 125 : 135;
+      const refDia = age < 50 ? 80 : 85;
+
+      document.getElementById('legendTextSys').innerText = `理想上壓 (${refSys})`;
+      document.getElementById('legendTextDia').innerText = `理想下壓 (${refDia})`;
+
+      if (healthChartInstance) {
+        healthChartInstance.destroy();
+      }
+
+      const now = new Date();
+      const cutoffDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - chartPeriodDays, 0, 0, 0);
+      const cutoffTime = cutoffDate.getTime();
+
+      let validList = (dataList || []).filter(d => {
+        const sys = d.systolic ?? d.Systolic;
+        const dia = d.diastolic ?? d.Diastolic;
+        const wt = d.weight ?? d.Weight;
+        const hasVal = (sys != null && sys !== "") || (dia != null && dia !== "") || (wt != null && wt !== "");
+        if (!hasVal) return false;
+
+        const dStr = d.date || d.Date || "";
+        const tStr = d.time || d.Time || "00:00";
+        const t = d.timestamp || parseSafeTime(dStr, tStr);
+
+        return t >= cutoffTime;
+      });
+
+      validList.sort((a, b) => {
+        const ta = a.timestamp || parseSafeTime(a.date || a.Date, a.time || a.Time);
+        const tb = b.timestamp || parseSafeTime(b.date || b.Date, b.time || b.Time);
+        return ta - tb;
+      });
+
+      let labels = [];
+      let sysData = [];
+      let diaData = [];
+      let wtData = [];
+
+      if (validList.length === 0) {
+        labels = ['起點', '終點'];
+        sysData = [null, null];
+        diaData = [null, null];
+        wtData = [null, null];
+      } else if (validList.length === 1) {
+        const single = validList[0];
+        const dVal = single.date || single.Date || "";
+        const tVal = single.time || single.Time || "";
+        const lbl = (String(dVal).slice(5) + " " + String(tVal)).trim();
+        labels = [lbl, '最新'];
+        sysData = [single.systolic ?? single.Systolic, null];
+        diaData = [single.diastolic ?? single.Diastolic, null];
+        wtData = [single.weight ?? single.Weight, null];
+      } else {
+        labels = validList.map(d => {
+          const dStr = String(d.date || d.Date || "").slice(5);
+          const tStr = String(d.time || d.Time || "");
+          return tStr ? `${dStr} ${tStr}` : dStr;
+        });
+        sysData = validList.map(d => {
+          const v = d.systolic ?? d.Systolic;
+          return (v !== "" && v != null) ? Number(v) : null;
+        });
+        diaData = validList.map(d => {
+          const v = d.diastolic ?? d.Diastolic;
+          return (v !== "" && v != null) ? Number(v) : null;
+        });
+        wtData = validList.map(d => {
+          const v = d.weight ?? d.Weight;
+          return (v !== "" && v != null) ? Number(v) : null;
+        });
+      }
+
+      if (chartTypeMode === 'bp') {
+        healthChartInstance = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: '收縮壓(上壓)',
+                data: sysData,
+                borderColor: '#059669',
+                backgroundColor: '#059669',
+                borderWidth: 2.5,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                tension: 0.2,
+                spanGaps: true,
+                fill: false
+              },
+              {
+                label: '舒張壓(下壓)',
+                data: diaData,
+                borderColor: '#0284c7',
+                backgroundColor: '#0284c7',
+                borderWidth: 2.5,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                tension: 0.2,
+                spanGaps: true,
+                fill: false
+              },
+              {
+                label: `理想上壓上限`,
+                data: Array(labels.length).fill(refSys),
+                borderColor: '#ea580c',
+                borderDash: [6, 4],
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: false
+              },
+              {
+                label: `理想下壓上限`,
+                data: Array(labels.length).fill(refDia),
+                borderColor: '#eab308',
+                borderDash: [6, 4],
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: false
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { min: 60, max: 150, grid: { color: '#f1f5f9' }, ticks: { stepSize: 10 } },
+              x: { grid: { display: false } }
+            }
+          }
+        });
+        document.getElementById('chartLegendContainer').classList.remove('hidden');
+      } else {
+        const unit = validList[validList.length - 1]?.unit || validList[validList.length - 1]?.Unit || selectedVitals.unit;
+        healthChartInstance = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: `體重曲線 (${unit})`,
+                data: wtData,
+                borderColor: '#0d9488',
+                backgroundColor: '#0d9488',
+                borderWidth: 2.5,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                tension: 0.2,
+                spanGaps: true,
+                fill: false
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { min: 45, max: 100, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
+          }
+        });
+        document.getElementById('chartLegendContainer').classList.add('hidden');
+      }
+    }
+
+    function toggleChartDataset(index) {
+      if (!healthChartInstance) return;
+      const isVisible = healthChartInstance.isDatasetVisible(index);
+      healthChartInstance.setDatasetVisibility(index, !isVisible);
+      healthChartInstance.update();
+      document.getElementById(`legendItem${index}`)?.classList.toggle('opacity-30', isVisible);
+      document.getElementById(`legendItem${index}`)?.classList.toggle('line-through', isVisible);
+    }
+
+    function switchChartType(type) {
+      chartTypeMode = type;
+      const isWeight = type === 'weight';
+      document.getElementById('btnTabBp').className = isWeight ? 'px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-600' : 'px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500 text-white shadow-sm';
+      document.getElementById('btnTabWeight').className = isWeight ? 'px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500 text-white shadow-sm' : 'px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-600';
+      renderChartWithData(realHistoryData);
+    }
+
+    function setChartPeriod(period) {
+      if (period === '7d') chartPeriodDays = 7;
+      else if (period === '30d') chartPeriodDays = 30;
+
+      ['7d', '30d', 'custom'].forEach(p => {
+        document.getElementById(`btnPeriod${p.charAt(0).toUpperCase() + p.slice(1)}`).className = (period === p) ? 'flex-1 py-1 rounded-lg bg-white text-emerald-700 shadow-sm' : 'flex-1 py-1 rounded-lg hover:text-slate-800';
+      });
+
+      fetchRealHistoryAndRenderChart();
+    }
+
+    function openCustomPeriodPicker() {
+      const p = prompt("請輸入自訂回顧天數:", "14");
+      if (p && !isNaN(p)) {
+        chartPeriodDays = parseInt(p, 10);
+        ['7d', '30d', 'custom'].forEach(m => {
+          document.getElementById(`btnPeriod${m.charAt(0).toUpperCase() + m.slice(1)}`).className = (m === 'custom') ? 'flex-1 py-1 rounded-lg bg-white text-emerald-700 shadow-sm' : 'flex-1 py-1 rounded-lg hover:text-slate-800';
+        });
+        fetchRealHistoryAndRenderChart();
+      }
+    }
+
+    // ==========================================
+    // 5. 歷史日誌月曆系統 (手風琴式折疊 + 修改 + 刪除)
+    // ==========================================
+    let histCalYear = new Date().getFullYear();
+    let histCalMonth = new Date().getMonth();
+    let selectedCalendarDate = "";
+    let recordedDatesSet = new Set();
+    let currentDayDietList = [];
+
+    function openHistoryCalendarModal() {
+      const today = getNowIsoStrings().date;
+      if (!selectedCalendarDate) selectedCalendarDate = today;
+
+      renderHistCalendarDays();
+      document.getElementById('historyCalendarModal').classList.remove('hidden');
+
+      fetchRecordedDatesAndMark();
+      loadDateHistoryDetail(selectedCalendarDate);
+    }
+
+    async function fetchRecordedDatesAndMark() {
+      if (!CONFIG.SHEET_ID) return;
+      const res = await callGasApi("getRecordedDates");
+      if (res && res.status === "success" && Array.isArray(res.dates)) {
+        recordedDatesSet = new Set(res.dates);
+        renderHistCalendarDays();
+      }
+    }
+
+    function renderHistCalendarDays() {
+      document.getElementById('histCalMonthYearTitle').innerText = `${histCalYear} 年 ${String(histCalMonth + 1).padStart(2, '0')} 月`;
+      const grid = document.getElementById('histCalDaysGrid');
+      grid.innerHTML = "";
+
+      const firstDay = new Date(histCalYear, histCalMonth, 1).getDay();
+      const totalDays = new Date(histCalYear, histCalMonth + 1, 0).getDate();
+
+      for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div class="h-9"></div>`;
+
+      for (let d = 1; d <= totalDays; d++) {
+        const dStr = `${histCalYear}-${String(histCalMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const isCurrent = (dStr === selectedCalendarDate);
+        const hasData = recordedDatesSet.has(dStr);
+
+        let btnClass = "relative h-9 rounded-xl flex flex-col items-center justify-center font-bold text-xs transition-all ";
+        if (isCurrent) {
+          btnClass += "bg-emerald-500 text-white shadow-md ";
+        } else if (hasData) {
+          btnClass += "bg-emerald-50/80 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100 active:scale-95 ";
+        } else {
+          btnClass += "hover:bg-slate-100 text-slate-700 active:scale-95 ";
+        }
+
+        grid.innerHTML += `
+          <button type="button" onclick="loadDateHistoryDetail('${dStr}')" class="${btnClass}">
+            <span>${d}</span>
+            ${hasData ? `<span class="w-1.5 h-1.5 rounded-full ${isCurrent ? 'bg-white' : 'bg-emerald-500'} mt-0.5"></span>` : `<span class="w-1.5 h-1.5 mt-0.5"></span>`}
+          </button>
+        `;
+      }
+    }
+
+    function changeHistCalMonth(delta) {
+      histCalMonth += delta;
+      if (histCalMonth < 0) { histCalMonth = 11; histCalYear--; }
+      else if (histCalMonth > 11) { histCalMonth = 0; histCalYear++; }
+      renderHistCalendarDays();
+    }
+
+    function getDirectDriveImageUrl(rawUrl) {
+      if (!rawUrl) return "";
+      const match = rawUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || rawUrl.match(/id=([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        return `https://lh3.googleusercontent.com/d/${match[1]}=w600`;
+      }
+      return rawUrl;
+    }
+
+    function toggleDietGroup(bodyId, iconId) {
+      const body = document.getElementById(bodyId);
+      const icon = document.getElementById(iconId);
+      if (body.classList.contains('hidden')) {
+        body.classList.remove('hidden');
+        icon.innerText = '➖';
+      } else {
+        body.classList.add('hidden');
+        icon.innerText = '➕';
+      }
+    }
+
+    async function loadDateHistoryDetail(dStr) {
+      selectedCalendarDate = dStr;
+      renderHistCalendarDays();
+      
+      document.getElementById('histSelectedDateTitle').innerText = `📅 ${dStr} 紀錄明細`;
+      const container = document.getElementById('histDateContent');
+      container.innerHTML = `<div class="p-4 text-center text-slate-400 text-xs"><span class="inline-block animate-spin mr-1">⏳</span> 正在讀取當日紀錄...</div>`;
+
+      if (!CONFIG.SHEET_ID) {
+        container.innerHTML = `<div class="p-3 bg-slate-50 rounded-2xl border text-slate-400 text-center text-xs">請先在右上角 ⚙️ 設定 Sheet ID</div>`;
+        return;
+      }
+
+      const res = await callGasApi("getDateDetail", { date: dStr });
+      if (res && res.status === "success") {
+        const vitals = res.vitals || [];
+        currentDayDietList = res.diet || [];
+
+        if (vitals.length || currentDayDietList.length) {
+          recordedDatesSet.add(dStr);
+          renderHistCalendarDays();
+        }
+
+        if (!vitals.length && !currentDayDietList.length) {
+          container.innerHTML = `<div class="p-4 bg-slate-50 rounded-2xl border text-slate-400 text-center text-xs">該日暫無任何生理或飲食紀錄</div>`;
+          return;
+        }
+
+        let html = "";
+
+        if (vitals.length > 0) {
+          html += `<div class="text-[11px] font-bold text-slate-500 px-1 pt-1">🩺 生理指標 (${vitals.length} 筆)</div>`;
+          vitals.forEach(v => {
+            html += `
+              <div class="p-3 bg-emerald-50/60 border border-emerald-100 rounded-2xl space-y-1">
+                <div class="flex justify-between items-center text-xs font-bold text-slate-800">
+                  <span>⏰ ${v.time}</span>
+                  <span class="text-emerald-700 font-mono text-sm">${v.systolic ? `${v.systolic}/${v.diastolic} mmHg` : ''}</span>
+                </div>
+                <div class="text-slate-600 text-[11px] font-mono flex gap-3">
+                  ${v.heartRate ? `<span>💓 心跳: <b>${v.heartRate}</b> bpm</span>` : ''}
+                  ${v.weight ? `<span>⚖️ 體重: <b>${v.weight}</b>${v.unit}</span>` : ''}
+                </div>
+              </div>
+            `;
+          });
+        }
+
+        if (currentDayDietList.length > 0) {
+          html += `<div class="text-[11px] font-bold text-slate-500 px-1 pt-3 pb-1">🥗 飲食紀錄總覽</div>`;
+          
+          const dietGroups = {};
+          let totalDayKcal = 0;
+          let totalDayWater = 0;
+
+          currentDayDietList.forEach((m, idx) => {
+            const type = m.mealType || '其他';
+            if (!dietGroups[type]) {
+              dietGroups[type] = { records: [], totalKcal: 0, totalWater: 0 };
+            }
+            m._originalIndex = idx;
+            dietGroups[type].records.push(m);
+            dietGroups[type].totalKcal += (Number(m.calories) || 0);
+            dietGroups[type].totalWater += (Number(m.volumeMl) || 0);
+            
+            totalDayKcal += (Number(m.calories) || 0);
+            totalDayWater += (Number(m.volumeMl) || 0);
+          });
+
+          html += `
+            <div class="flex justify-between items-center bg-gradient-to-r from-emerald-50 to-sky-50 px-3 py-2.5 rounded-xl mb-3 border border-emerald-100/50 shadow-sm">
+              <span class="text-xs font-black text-emerald-700">🔥 總熱量: ${totalDayKcal} kcal</span>
+              <span class="text-xs font-black text-sky-700">💧 總水分: ${totalDayWater} ml</span>
+            </div>
+          `;
+
+          const groupOrder = ['早餐', '午餐', '下午茶/小食', '晚餐', '水分補充', '水分'];
+          const sortedGroupKeys = Object.keys(dietGroups).sort((a, b) => {
+              let idxA = groupOrder.indexOf(a);
+              let idxB = groupOrder.indexOf(b);
+              if(idxA === -1) idxA = 99;
+              if(idxB === -1) idxB = 99;
+              return idxA - idxB;
+          });
+
+          function getMealIcon(t) {
+              if(t.includes('早')) return '🍳';
+              if(t.includes('午')) return '🥗';
+              if(t.includes('晚')) return '🍲';
+              if(t.includes('水')) return '💧';
+              if(t.includes('茶') || t.includes('小食')) return '☕';
+              return '🍴';
+          }
+
+          sortedGroupKeys.forEach((key, gIdx) => {
+              const group = dietGroups[key];
+              const isWaterType = key.includes('水');
+              
+              html += `
+              <div class="border border-slate-200 rounded-2xl overflow-hidden mb-2.5 bg-white shadow-sm">
+                  <div class="flex justify-between items-center bg-slate-50 hover:bg-slate-100 px-3 py-2.5 cursor-pointer select-none transition-colors" onclick="toggleDietGroup('dietGroup_${gIdx}', 'dietGroupIcon_${gIdx}')">
+                     <div class="flex items-center gap-2 font-bold text-xs">
+                         <span class="text-slate-800">${getMealIcon(key)} ${key}</span>
+                         ${group.totalKcal > 0 ? `<span class="bg-amber-100/80 text-amber-700 px-1.5 py-0.5 rounded font-mono">${group.totalKcal} kcal</span>` : ''}
+                         ${group.totalWater > 0 ? `<span class="bg-sky-100/80 text-sky-700 px-1.5 py-0.5 rounded font-mono">💧 ${group.totalWater} ml</span>` : ''}
+                     </div>
+                     <span id="dietGroupIcon_${gIdx}" class="text-slate-400 font-black text-xs px-1">➕</span>
+                  </div>
+                  
+                  <div id="dietGroup_${gIdx}" class="hidden flex flex-col gap-2 p-2 bg-white border-t border-slate-100">
+              `;
+
+              group.records.forEach(m => {
+                  const idx = m._originalIndex;
+                  const hasImage = m.imageUrls && m.imageUrls.length > 0;
+                  
+                  if (isWaterType && !hasImage && (!m.calories || m.calories == 0)) {
+                      html += `
+                        <div class="flex justify-between items-center text-xs px-2.5 py-2 bg-sky-50/40 rounded-xl border border-sky-100/60">
+                           <div class="flex items-center gap-2">
+                             <span class="font-mono text-slate-400">${m.time}</span>
+                             <span class="text-slate-600 font-medium">${m.description || '飲水'}</span>
+                           </div>
+                           <div class="flex items-center gap-3">
+                             <span class="font-bold text-sky-600 font-mono">${m.volumeMl} ml</span>
+                             <div class="flex items-center gap-1 border-l border-sky-200 pl-2">
+                                <button onclick="openEditDietModal(${idx})" class="p-1 rounded bg-white border border-slate-200 text-slate-500 hover:text-emerald-600 active:scale-95 text-[10px]" title="修改">✏️</button>
+                                <button onclick="confirmDeleteDietRecord(${idx})" class="p-1 rounded bg-white border border-slate-200 text-slate-500 hover:text-rose-600 active:scale-95 text-[10px]" title="刪除">🗑️</button>
+                             </div>
+                           </div>
+                        </div>
+                      `;
+                  } else {
+                      html += `
+                        <div class="p-3 bg-slate-50/50 border border-slate-200/80 rounded-xl space-y-2 relative">
+                          <div class="flex justify-between items-center text-xs font-bold text-slate-800">
+                            <span class="font-mono text-slate-500">⏰ ${m.time}</span>
+                            <div class="flex items-center gap-2">
+                              <span class="text-amber-600 font-mono">${m.calories ? `${m.calories} kcal` : '0 kcal'}</span>
+                              <button onclick="openEditDietModal(${idx})" class="p-1 rounded bg-white border border-slate-200 text-slate-500 hover:text-emerald-600 active:scale-95 text-[11px]" title="修改">✏️</button>
+                              <button onclick="confirmDeleteDietRecord(${idx})" class="p-1 rounded bg-white border border-slate-200 text-slate-500 hover:text-rose-600 active:scale-95 text-[11px]" title="刪除">🗑️</button>
+                            </div>
+                          </div>
+                          <div class="text-xs text-slate-700 font-semibold">${m.description}</div>
+                          ${m.volumeMl ? `<div class="text-[11px] text-sky-600 font-bold">💧 攝取水分: ${m.volumeMl} ml</div>` : ''}
+                          
+                          ${hasImage ? `
+                            <div class="flex gap-2.5 pt-1.5 overflow-x-auto no-scrollbar">
+                              ${m.imageUrls.map(url => {
+                                const directImg = getDirectDriveImageUrl(url);
+                                return `
+                                  <a href="${url}" target="_blank" class="block relative flex-shrink-0 active:scale-95 transition-transform">
+                                    <img src="${directImg}" class="w-20 h-20 rounded-xl object-cover border border-slate-200 shadow-sm bg-slate-200" loading="lazy">
+                                  </a>
+                                `;
+                              }).join('')}
+                            </div>
+                          ` : ''}
+                        </div>
+                      `;
+                  }
+              });
+
+              html += `
+                  </div>
+              </div>`;
+          });
+        }
+
+        container.innerHTML = html;
+      } else {
+        container.innerHTML = `<div class="p-3 bg-rose-50 text-rose-600 rounded-2xl text-center text-xs">讀取失敗: ${res?.message || '未知錯誤'}</div>`;
+      }
+    }
+
+    function openEditDietModal(dietIdx) {
+      const record = currentDayDietList[dietIdx];
+      if (!record) return;
+
+      document.getElementById('editRowNumber').value = record.rowNumber;
+      document.getElementById('editDietDesc').value = record.description || "";
+      document.getElementById('editDietCal').value = record.calories || 0;
+      document.getElementById('editDietWater').value = record.volumeMl || 0;
+
+      document.getElementById('editDietModal').classList.remove('hidden');
+    }
+
+    async function submitEditDietRecord() {
+      const confirmWarning = confirm("⚠️ 警告：手動修改後，AI 將不會再對此餐進行自動分析或覆蓋，除非日後人手重新要求。確定要儲存嗎？");
+      if (!confirmWarning) return;
+
+      const rowNum = Number(document.getElementById('editRowNumber').value);
+      const desc = document.getElementById('editDietDesc').value.trim();
+      const cal = Number(document.getElementById('editDietCal').value) || 0;
+      const water = Number(document.getElementById('editDietWater').value) || 0;
+
+      if (!rowNum) return;
+
+      showToast("正在更新試算表記錄...", true);
+
+      const res = await callGasApi("updateDietRecord", {
+        rowNumber: rowNum,
+        updatedData: { description: desc, calories: cal, volumeMl: water }
+      });
+
+      if (res && res.status === "success") {
+        showToast("紀錄已成功更新！", true);
+        closeModal('editDietModal');
+        loadDateHistoryDetail(selectedCalendarDate);
+      } else {
+        showToast(`修改失敗: ${res?.message}`, false);
+      }
+    }
+
+    async function confirmDeleteDietRecord(dietIdx) {
+      const record = currentDayDietList[dietIdx];
+      if (!record) return;
+
+      const confirmDel = confirm("⚠️ 警告：刪除後此筆飲食紀錄將永久移除，無法恢復！確定要刪除嗎？");
+      if (!confirmDel) return;
+
+      if (!record.rowNumber) return;
+
+      showToast("正在從 Google Sheet 刪除紀錄...", true);
+
+      const res = await callGasApi("deleteDietRecord", { rowNumber: record.rowNumber });
+      if (res && res.status === "success") {
+        showToast("紀錄已成功刪除！", true);
+        loadDateHistoryDetail(selectedCalendarDate);
+        fetchRecordedDatesAndMark();
+      } else {
+        showToast(`刪除失敗: ${res?.message}`, false);
+      }
+    }
+
+    // ==========================================
+    // 6. 設定管理 (GitHub Pages 原生頂層 LocalStorage，真正永久記住)
+    // ==========================================
+    function openConfigModal() {
+      const currentAge = localStorage.getItem('pulsecore_user_age') || CONFIG.USER_AGE || 40;
+      const currentId = localStorage.getItem('pulsecore_sheet_id') || CONFIG.SHEET_ID || "";
+      
+      const ageInput = document.getElementById('cfgUserAge');
+      const sheetInput = document.getElementById('cfgSheetId');
+      
+      if (ageInput) ageInput.value = currentAge;
+      if (sheetInput) sheetInput.value = currentId;
+      
+      document.getElementById('configModal').classList.remove('hidden');
+    }
+
+    function saveConfigSettings() {
+      const ageInput = document.getElementById('cfgUserAge');
+      const sheetInput = document.getElementById('cfgSheetId');
+
+      const age = ageInput ? ageInput.value.trim() : "";
+      const rawInput = sheetInput ? sheetInput.value.trim() : "";
+      const sheetId = extractSpreadsheetId(rawInput);
+
+      if (age) {
+        localStorage.setItem('pulsecore_user_age', age);
+        CONFIG.USER_AGE = parseInt(age, 10);
+      }
+      
+      if (sheetId) {
+        localStorage.setItem('pulsecore_sheet_id', sheetId);
+        CONFIG.SHEET_ID = sheetId;
+      }
+
+      fetchRealHistoryAndRenderChart();
+      fetchRecentDietHistory();
+      closeModal('configModal');
+      showToast("個人設定已成功永久儲存在此設備！", true);
+    }
+  </script>
+</body>
+</html>

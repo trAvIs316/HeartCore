@@ -574,21 +574,32 @@
     // ==========================================
     // 你的 Google Apps Script 部署 API 網址
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxSjJYgE_1p7HTpym3MurgvXRG9uX0DHMTgJC6sshnaTt6fkRygDFByyrvLm0gyGouu/exec";
-
-    // 統一後端通訊函式
+    
+// 解決 iOS Safari CORS 及 302 重定向問題的專用 API 呼叫函式
     async function callGasApi(action, payload = {}) {
       const sid = CONFIG.SHEET_ID;
       try {
+        const bodyData = JSON.stringify({
+          action: action,
+          spreadsheetId: sid,
+          payload: payload
+        });
+
+        // 使用 URLSearchParams 以避免觸發 OPTIONS Preflight 阻擋
+        const formParams = new URLSearchParams();
+        formParams.append("data", bodyData);
+
         const response = await fetch(GAS_API_URL, {
           method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({
-            action: action,
-            spreadsheetId: sid,
-            payload: payload
-          })
+          body: formParams,
+          redirect: "follow", // 確保跟隨 Google 的 302 轉向
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
+          }
         });
-        return await response.json();
+
+        const text = await response.text();
+        return JSON.parse(text);
       } catch (err) {
         console.error("API 通訊錯誤:", err);
         return { status: "error", message: err.toString() };
